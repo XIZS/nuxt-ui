@@ -1,6 +1,6 @@
 import { UButton, UModal } from "#components"
 import { createVNode } from "vue"
-import type { FormType } from "~/components/global/XForm"
+import type { FormType } from "../components/global/XForm"
 
 
 export const Modal = (el:any)=>{

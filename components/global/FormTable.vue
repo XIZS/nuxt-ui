@@ -1,6 +1,7 @@
 <template>
     <div class="h-full gap-4 relative flex flex-col ">
-        <div class="flex justify-between  items-center">
+        <!-- {{ props.form?.length>0 }}:{{props.action?.length>0 }} -->
+        <div class="flex justify-between  items-center" v-if="props.form?.length>0 || props.action?.length>0">
             <div  class="flex items-center flex-wrap gap-2">
                 <component 
                     v-for="item in formComs"
@@ -16,12 +17,11 @@
                     v-for="item in actionComs"
                     :is="item" :form="form" :k="item.k" :label="item.label"
                 ></component>
-                <UButton @click="tableData.load()" :loading="tableData.loading" icon="cuida:loading-right-outline"  variant="outline"> </UButton>
             </div>
         </div>
         <UTable
             ref="table"
-            :data="tableData.value"
+            :data="tableData.value.data"
             :columns="props.table.columns"
             :loading="tableData.loading"
             sticky
@@ -39,11 +39,17 @@
 
             <div class="flex items-center gap-1.5">
             <UPagination
-                :default-page="(table?.tableApi?.getState().pagination.pageIndex || 0) + 1"
-                :items-per-page="table?.tableApi?.getState().pagination.pageSize"
-                :total="table?.tableApi?.getFilteredRowModel().rows.length"
-                @update:page="(p) => table?.tableApi?.setPageIndex(p - 1)"
+                v-if="tableData.value.count>0"
+                v-model:page="form.page"
+                :items-per-page="20"
+                :total="tableData.value.count"
+                @update:page="(p) => {
+                    form.page = p
+                    tableData.load()
+                }"
             />
+            <UButton @click="tableData.load()" :loading="tableData.loading" icon="cuida:loading-right-outline"  variant="outline"> </UButton>
+
             </div>
         </div>
     </div>
@@ -51,14 +57,8 @@
 </template>
 
 <script setup lang="ts">
+import { asyncReactive } from '#imports'
 import type { TableColumn } from '@nuxt/ui'
-
-type ColumnType = {
-    id?:string,
-    label?:string,
-    k:string,
-    is:string,
-}
 
 export type FormType = {
     label:string,
@@ -71,7 +71,7 @@ export type FormTableProps<T> = {
     action?: VNode[]
     table: {
         columns: TableColumn<T>[]
-        data: () => Promise<any[]>|any[]
+        data: (form:any) => Promise<any[]>|any[]
     },
     control?:any
 }
@@ -83,14 +83,16 @@ let debounceLoad = useDebounceFn(()=>{
     tableData?.load()
 },500)
 
-const form = ref({})
+const form = ref({
+    page:1,
+})
 watch(form,(val)=>{
     debounceLoad()
 },{
     deep:true
 })
 const formPreCom:any = {
-    'input':defineAsyncComponent(()=>import('@/components/global/ft/input.vue'))
+    'input':defineAsyncComponent(()=>import('./ft/input.vue'))
 }
 const actionPreComs:any = {
     'input':defineAsyncComponent(()=>import('@/components/global/ft/input.vue'))
@@ -109,10 +111,20 @@ const actionComs = props.form.map((item)=>{
 })
 
 
-let tableData = asyncReactive(async()=>{
-    let res =  await props.table.data(form.value) 
 
-    return res.data
+type DataType = {
+    count:number,
+    data:any[]
+}
+let tableData = asyncReactive<DataType>(async()=>{
+    let res =  await props.table.data(form.value) 
+    if(Array.isArray(res)){
+        return {
+            count:0,
+            data:res,
+        }
+    }
+    return res 
 },[])
 
 
